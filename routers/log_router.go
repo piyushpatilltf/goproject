@@ -12,7 +12,5 @@ func LogRoutes(router *gin.Engine) {
 		logRoutes.POST("", controllers.CreateLog)
 		logRoutes.GET("", controllers.GetLogs)
 		logRoutes.GET("/:id", controllers.GetLog)
-		logRoutes.PUT("/:id", controllers.UpdateLog)
-		logRoutes.DELETE("/:id", controllers.DeleteLog)
 	}
 }

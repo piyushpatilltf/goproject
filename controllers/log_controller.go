@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"context"
+	"encoding/json"
 	"go-crud-api/config"
 	"go-crud-api/models"
 	"net/http"
@@ -22,13 +24,20 @@ func CreateLog(c *gin.Context) {
 }
 
 func GetLogs(c *gin.Context) {
-	// var logs []models.Log
-	// config.DB.Find(&logs)
-	// c.JSON(http.StatusOK, logs)
+	cacheKey := "logs"
+	val, err := config.Rdb.Get(context.Background(), cacheKey).Result()
+    if err == nil {
+        var cachedLogs []models.Log
+        err := json.Unmarshal([]byte(val), &cachedLogs)
+        if err == nil {
+            c.JSON(http.StatusOK, cachedLogs)
+            return
+        }
+    }
+
 	var logs []models.Log
 	query := config.DB
 
-	// Filtering by timestamp
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 	if startTime != "" && endTime != "" {
@@ -41,19 +50,16 @@ func GetLogs(c *gin.Context) {
 		}
 	}
 
-	// Filtering by severity
 	severity := c.Query("severity")
 	if severity != "" {
 		query = query.Where("severity = ?", severity)
 	}
 
-	// Filtering by service name
 	serviceName := c.Query("service_name")
 	if serviceName != "" {
 		query = query.Where("service_name = ?", serviceName)
 	}
 
-	// Limiting the number of results
 	count := c.Query("count")
 	if count != "" {
 		limit, err := strconv.Atoi(count)
@@ -63,6 +69,16 @@ func GetLogs(c *gin.Context) {
 	}
 
 	query.Find(&logs)
+
+	logBytes, err := json.Marshal(logs)
+    if err == nil {
+        err = config.Rdb.Set(context.Background(), cacheKey, logBytes, time.Minute*5).Err() 
+        if err != nil {
+           c.JSON(http.StatusNotFound,gin.H{"error": "Log not found!"})
+		   return
+        }
+    }
+
 	c.JSON(http.StatusOK, logs)
 }
 
@@ -77,28 +93,5 @@ func GetLog(c *gin.Context) {
 }
 
 
-func UpdateLog(c *gin.Context) {
-	id := c.Param("id")
-	var log models.Log
-	if err := config.DB.First(&log, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Log not found!"})
-		return
-	}
-	if err := c.ShouldBindJSON(&log); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	config.DB.Save(&log)
-	c.JSON(http.StatusOK, log)
-}
 
-func DeleteLog(c *gin.Context) {
-	id := c.Param("id")
-	var log models.Log
-	if err := config.DB.First(&log, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Log not found!"})
-		return
-	}
-	config.DB.Delete(&log)
-	c.JSON(http.StatusOK, gin.H{"message": "Log deleted"})
-}
+

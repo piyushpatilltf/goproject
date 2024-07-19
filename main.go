@@ -1,4 +1,3 @@
-// main.go
 package main
 
 import (
@@ -9,6 +8,7 @@ import (
 
 func main() {
 	config.Connect()
+	config.ConnectToRedis()
 	config.Migrate(&models.Log{})
 
 	r := routers.SetupRouter()
